@@ -1,0 +1,19 @@
+#!/bin/bash -eu
+
+NAME=hadoop
+VERSION=`cat pom.xml | grep '<version>' | head -1 | sed 's_.*<version>\([^<]*\)</version>.*_\1_'`
+
+DIST=dist
+pushd `dirname $0` >/dev/null; BASE=`pwd`; popd >/dev/null
+TAR="$BASE"/hadoop-dist/target/"$NAME"-"$VERSION".tar.gz
+
+echo "Building $NAME-$VERSION"
+echo
+mvn clean package -Pdist,native -DskipTests -Dtar
+
+if [ -f "$TAR" ] then
+  echo "Created $TAR"
+  tar tf "$TAR" | perl -pe's/^/  /'
+else
+  exit 2
+fi
