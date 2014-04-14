@@ -219,9 +219,12 @@ public class AMLauncher implements Runnable {
 
     Credentials credentials = new Credentials();
     DataInputByteBuffer dibb = new DataInputByteBuffer();
-    if (container.getTokens() != null) {
+    ByteBuffer tokens = container.getTokens();
+    if (tokens != null) {
       // TODO: Don't do this kind of checks everywhere.
-      dibb.reset(container.getTokens());
+      tokens = tokens.duplicate();
+      tokens.rewind();
+      dibb.reset(tokens);
       credentials.readTokenStorageStream(dibb);
     }
 
