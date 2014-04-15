@@ -16,7 +16,7 @@ Anyway, the way we do hadoop releases is:
     git push --tags
 
 5) Build and deploy to artifactory. This will make jars available for inclusion in client-side projects:
-    mvn clean deploy
+    git checkout release-2.3.0-mmx4 && mvn clean deploy
 
 6) Update HADOOP_VERSION in the hadoop-mmx repository.
 
