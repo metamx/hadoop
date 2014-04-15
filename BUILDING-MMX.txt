@@ -6,7 +6,7 @@ Anyway, the way we do hadoop releases is:
     for x in `find . -name pom.xml` ; do perl -pi -e 's/2.3.0-mmx3/2.3.0-mmx4/g' ; done
 
 2) Tag the new version:
-    git tag 2.3.0-mmx4
+    git tag release-2.3.0-mmx4
 
 3) Push to github:
     git push --tags
