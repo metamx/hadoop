@@ -223,30 +223,20 @@ public class Credentials implements Writable {
   @Override
   public void write(DataOutput out) throws IOException {
     // write out tokens first
-    final int tokensCount = tokenMap.size();
-    System.err.println("Credentials.write: tokenSize = " + tokensCount);
-    WritableUtils.writeVInt(out, tokensCount);
-    int tokensWritten = 0;
+    WritableUtils.writeVInt(out, tokenMap.size());
     for(Map.Entry<Text, 
         Token<? extends TokenIdentifier>> e: tokenMap.entrySet()) {
       e.getKey().write(out);
       e.getValue().write(out);
-      tokensWritten ++;
     }
-    System.err.println("Credentials.write: tokensWritten = " + tokensWritten);
-
+    
     // now write out secret keys
-    final int secretsCount = secretKeysMap.size();
-    System.err.println("Credentials.write: secretSize = " + secretsCount);
-    WritableUtils.writeVInt(out, secretsCount);
-    int secretsWritten = 0;
+    WritableUtils.writeVInt(out, secretKeysMap.size());
     for(Map.Entry<Text, byte[]> e : secretKeysMap.entrySet()) {
       e.getKey().write(out);
       WritableUtils.writeVInt(out, e.getValue().length);
       out.write(e.getValue());
-      secretsWritten ++;
     }
-    System.err.println("Credentials.write: secretsWritten = " + secretsWritten);
   }
   
   /**

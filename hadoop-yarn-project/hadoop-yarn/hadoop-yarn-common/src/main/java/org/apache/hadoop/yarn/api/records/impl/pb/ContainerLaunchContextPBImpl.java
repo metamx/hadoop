@@ -241,37 +241,14 @@ extends ContainerLaunchContext {
   @Override
   public ByteBuffer getTokens() {
     ContainerLaunchContextProtoOrBuilder p = viaProto ? proto : builder;
-    final ByteBuffer ret;
     if (this.tokens != null) {
-      ret = this.tokens;
-    } else if (!p.hasTokens()) {
-      ret = null;
-    } else {
-      this.tokens =  convertFromProtoFormat(p.getTokens());
-      ret = this.tokens;
+      return this.tokens;
     }
-    final Exception e = new Exception("not an exception");
-    if (ret == null) {
-      System.err.println(String.format("%s:getTokens: null", getClass()));
-      e.printStackTrace();
-    } else {
-      final String asString = new String(
-          ret.array(),
-          ret.arrayOffset() + ret.position(),
-          ret.arrayOffset() + ret.limit()
-      );
-      System.err.println(
-          String.format(
-              "%s:getTokens: position = %d, remaining = %d, data = %s",
-              getClass(),
-              ret.position(),
-              ret.remaining(),
-              asString
-          )
-      );
-      e.printStackTrace();
+    if (!p.hasTokens()) {
+      return null;
     }
-    return ret;
+    this.tokens =  convertFromProtoFormat(p.getTokens());
+    return this.tokens;
   }
 
   @Override
@@ -281,7 +258,6 @@ extends ContainerLaunchContext {
       builder.clearTokens();
     }
     this.tokens = tokens;
-    getTokens(); // to print debugging messages
   }
 
   @Override
