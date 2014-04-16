@@ -825,14 +825,10 @@ public abstract class TaskAttemptImpl implements
       myServiceData.put(entry.getKey(), entry.getValue().duplicate());
     }
 
-    // Duplicate and rewind tokens.
-    ByteBuffer myTokens = commonContainerSpec.getTokens().duplicate();
-    myTokens.rewind();
-
     // Construct the actual Container
     ContainerLaunchContext container = ContainerLaunchContext.newInstance(
         commonContainerSpec.getLocalResources(), myEnv, commands,
-        myServiceData, myTokens,
+        myServiceData, commonContainerSpec.getTokens().duplicate(),
         applicationACLs);
 
     return container;

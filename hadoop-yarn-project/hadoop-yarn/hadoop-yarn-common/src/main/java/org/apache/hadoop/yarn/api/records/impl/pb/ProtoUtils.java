@@ -160,9 +160,11 @@ public class ProtoUtils {
 
   public static ByteString convertToProtoFormat(ByteBuffer byteBuffer) {
 //    return ByteString.copyFrom((ByteBuffer)byteBuffer.duplicate().rewind());
-    ByteBuffer byteBufferDup = byteBuffer.duplicate();
-    byteBufferDup.rewind();
-    return ByteString.copyFrom(byteBufferDup);
+    int oldPos = byteBuffer.position();
+    byteBuffer.rewind();
+    ByteString bs = ByteString.copyFrom(byteBuffer);
+    byteBuffer.position(oldPos);
+    return bs;
   }
 
   /*

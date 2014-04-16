@@ -668,7 +668,6 @@ public class ContainerManagerImpl extends CompositeService implements
     ByteBuffer tokens = launchContext.getTokens();
 
     if (tokens != null) {
-      tokens = tokens.duplicate();
       DataInputByteBuffer buf = new DataInputByteBuffer();
       tokens.rewind();
       buf.reset(tokens);

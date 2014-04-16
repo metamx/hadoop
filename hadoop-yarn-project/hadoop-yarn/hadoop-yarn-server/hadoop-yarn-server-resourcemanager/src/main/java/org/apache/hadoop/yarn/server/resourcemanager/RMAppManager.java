@@ -387,10 +387,9 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent>,
     DataInputByteBuffer dibb = new DataInputByteBuffer();
     ByteBuffer tokens = application.getAMContainerSpec().getTokens();
     if (tokens != null) {
-      tokens = tokens.duplicate();
-      tokens.rewind();
       dibb.reset(tokens);
       credentials.readTokenStorageStream(dibb);
+      tokens.rewind();
     }
     return credentials;
   }
