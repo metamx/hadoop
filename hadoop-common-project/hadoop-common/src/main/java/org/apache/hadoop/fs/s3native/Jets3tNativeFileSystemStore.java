@@ -40,7 +40,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3.S3Credentials;
 import org.apache.hadoop.fs.s3.S3Exception;
 import org.jets3t.service.S3Service;
-import org.jets3t.service.S3ServiceException;
 import org.jets3t.service.ServiceException;
 import org.jets3t.service.StorageObjectsChunk;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
@@ -76,8 +75,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
         new AWSCredentials(s3Credentials.getAccessKey(),
             s3Credentials.getSecretAccessKey());
       this.s3Service = new RestS3Service(awsCredentials);
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
+    } catch (ServiceException e) {
+      throw propagateRootCause(e);
     }
     multipartEnabled =
         conf.getBoolean("fs.s3n.multipart.uploads.enabled", false);
@@ -111,8 +110,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
         object.setMd5Hash(md5Hash);
       }
       s3Service.putObject(bucket, object);
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
+    } catch (ServiceException e) {
+      throw propagateRootCause(e);
     } finally {
       if (in != null) {
         try {
@@ -143,7 +142,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       mpUtils.uploadObjects(bucket.getName(), s3Service,
                             objectsToUploadAsMultipart, null);
     } catch (ServiceException e) {
-      handleServiceException(e);
+      throw propagateRootCause(e);
     } catch (Exception e) {
       throw new S3Exception(e);
     }
@@ -157,8 +156,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       object.setContentType("binary/octet-stream");
       object.setContentLength(0);
       s3Service.putObject(bucket, object);
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
+    } catch (ServiceException e) {
+      throw propagateRootCause(e);
     }
   }
 
@@ -174,12 +173,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
           object.getLastModifiedDate().getTime());
 
     } catch (ServiceException e) {
-      // Following is brittle. Is there a better way?
-      if ("NoSuchKey".equals(e.getErrorCode())) {
-        return null; //return null if key not found
-      }
-      handleServiceException(e);
-      return null; //never returned - keep compiler happy
+      propagateUnlessNotFound(e);
+      return null; //return null if key not found
     } finally {
       if (object != null) {
         object.closeDataInputStream();
@@ -204,7 +199,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       S3Object object = s3Service.getObject(bucket.getName(), key);
       return object.getDataInputStream();
     } catch (ServiceException e) {
-      handleServiceException(key, e);
+      propagateUnlessNotFound(e);
       return null; //return null if key not found
     }
   }
@@ -229,7 +224,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
                                             null, byteRangeStart, null);
       return object.getDataInputStream();
     } catch (ServiceException e) {
-      handleServiceException(key, e);
+      propagateUnlessNotFound(e);
       return null; //return null if key not found
     }
   }
@@ -250,7 +245,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
   /**
    *
    * @return
-   * This method returns null if the list could not be populated
+   * This method throws an exception if the list could not be populated
    * due to S3 giving ServiceException
    * @throws IOException
    */
@@ -273,12 +268,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       }
       return new PartialListing(chunk.getPriorLastKey(), fileMetadata,
           chunk.getCommonPrefixes());
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
-      return null; //never returned - keep compiler happy
     } catch (ServiceException e) {
-      handleServiceException(e);
-      return null; //return null if list could not be populated
+      throw propagateRootCause(e);
     }
   }
 
@@ -290,7 +281,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       }
       s3Service.deleteObject(bucket, key);
     } catch (ServiceException e) {
-      handleServiceException(key, e);
+      throw propagateRootCause(key, e);
     }
   }
 
@@ -298,7 +289,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
     try {
       s3Service.renameObject(bucket.getName(), srcKey, new S3Object(dstKey));
     } catch (ServiceException e) {
-      handleServiceException(e);
+      throw propagateRootCause(srcKey, e);
     }
   }
   
@@ -320,7 +311,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       s3Service.copyObject(bucket.getName(), srcKey, bucket.getName(),
           new S3Object(dstKey), false);
     } catch (ServiceException e) {
-      handleServiceException(srcKey, e);
+      throw propagateRootCause(srcKey, e);
     }
   }
 
@@ -355,7 +346,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       Collections.reverse(listedParts);
       s3Service.multipartCompleteUpload(multipartUpload, listedParts);
     } catch (ServiceException e) {
-      handleServiceException(e);
+      throw propagateRootCause(srcObject.getKey(), e);
     }
   }
 
@@ -366,8 +357,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       for (S3Object object : objects) {
         s3Service.deleteObject(bucket, object.getKey());
       }
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
+    } catch (ServiceException e) {
+      throw propagateRootCause(e);
     }
   }
 
@@ -380,40 +371,32 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       for (S3Object object : objects) {
         sb.append(object.getKey()).append("\n");
       }
-    } catch (S3ServiceException e) {
-      handleS3ServiceException(e);
+    } catch (ServiceException e) {
+      throw propagateRootCause(e);
     }
     System.out.println(sb);
   }
 
-  private void handleServiceException(String key, ServiceException e) throws IOException {
-    if ("NoSuchKey".equals(e.getErrorCode())) {
-      throw new FileNotFoundException("Key '" + key + "' does not exist in S3");
-    } else {
-      handleServiceException(e);
-    }
-  }
-
-  private void handleS3ServiceException(S3ServiceException e) throws IOException {
+  private IOException propagateRootCause(ServiceException e) throws IOException {
     if (e.getCause() instanceof IOException) {
       throw (IOException) e.getCause();
     }
     else {
       if(LOG.isDebugEnabled()) {
-        LOG.debug("S3 Error code: " + e.getS3ErrorCode() + "; S3 Error message: " + e.getS3ErrorMessage());
+        LOG.debug("S3 Error code: " + e.getErrorCode() + "; S3 Error message: " + e.getErrorMessage());
       }
       throw new S3Exception(e);
     }
   }
 
-  private void handleServiceException(ServiceException e) throws IOException {
-    if (e.getCause() instanceof IOException) {
-      throw (IOException) e.getCause();
-    }
-    else {
-      if(LOG.isDebugEnabled()) {
-        LOG.debug("Got ServiceException with Error code: " + e.getErrorCode() + ";and Error message: " + e.getErrorMessage());
-      }
+  private IOException propagateRootCause(String key, ServiceException e) throws IOException {
+    propagateUnlessNotFound(e);
+    throw new FileNotFoundException("Key '" + key + "' does not exist in S3");
+  }
+
+  private void propagateUnlessNotFound(ServiceException e) throws IOException {
+    if (!"NoSuchKey".equals(e.getErrorCode())) {
+      throw propagateRootCause(e);
     }
   }
 }
