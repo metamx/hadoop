@@ -199,8 +199,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
       S3Object object = s3Service.getObject(bucket.getName(), key);
       return object.getDataInputStream();
     } catch (ServiceException e) {
-      propagateUnlessNotFound(e);
-      return null; //return null if key not found
+      throw propagateRootCause(e);
     }
   }
 
@@ -224,8 +223,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
                                             null, byteRangeStart, null);
       return object.getDataInputStream();
     } catch (ServiceException e) {
-      propagateUnlessNotFound(e);
-      return null; //return null if key not found
+      throw propagateRootCause(e);
     }
   }
 
@@ -395,7 +393,8 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
   }
 
   private void propagateUnlessNotFound(ServiceException e) throws IOException {
-    if (!"NoSuchKey".equals(e.getErrorCode())) {
+    // A bit janky, although the check on 404 appears to be necessary to work with jets3t 0.9.0.
+    if (!"NoSuchKey".equals(e.getErrorCode()) && 404 != e.getResponseCode()) {
       throw propagateRootCause(e);
     }
   }
