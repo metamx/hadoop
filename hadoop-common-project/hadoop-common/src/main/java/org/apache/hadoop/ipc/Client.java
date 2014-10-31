@@ -37,8 +37,10 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
@@ -55,6 +57,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.net.SocketFactory;
 import javax.security.sasl.Sasl;
 
+import com.google.common.collect.Maps;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -120,7 +123,7 @@ public class Client {
     retryCount.set(rc);
   }
 
-  private Hashtable<ConnectionId, Connection> connections =
+  final private Hashtable<ConnectionId, Connection> connections =
     new Hashtable<ConnectionId, Connection>();
 
   private Class<? extends Writable> valueClass;   // class of call values
@@ -134,9 +137,14 @@ public class Client {
 
   private final boolean fallbackAllowed;
   private final byte[] clientId;
-  
+
+  private final long penaltyBoxMillis;
+
+  // Remote address -> time until which this address is in the penalty box
+  private final Map<InetSocketAddress, Long> penaltyBox = Maps.newHashMap();
+
   final static int CONNECTION_CONTEXT_CALL_ID = -3;
-  
+
   /**
    * Executor on which IPC calls' parameters are sent.
    * Deferring the sending of parameters to a separate
@@ -248,6 +256,30 @@ public class Client {
    */
   public static final void setConnectTimeout(Configuration conf, int timeout) {
     conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY, timeout);
+  }
+
+  /**
+   * set the penalty box duration in configuration
+   *
+   * @param conf Configuration
+   * @param millis the penalty box duration
+   */
+  public static void setPenaltyBoxMillis(Configuration conf, long millis) {
+    conf.setLong(CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_KEY, millis);
+  }
+
+  /**
+   * The time for which an address will be penalty-boxed following an unrecoverable timeout.
+   * Penalty-boxed addresses throw exceptions immediately upon trying to connect to them.
+   *
+   * @param conf Configuration
+   * @return the penalty box duration in milliseconds. -1 if penalty boxing is disabled
+   */
+  public static long getPenaltyBoxMillis(Configuration conf) {
+    return conf.getLong(
+        CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_KEY,
+        CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_DEFAULT
+    );
   }
 
   /**
@@ -808,6 +840,19 @@ public class Client {
 
       // throw the exception if the maximum number of retries is reached
       if (curRetries >= maxRetries) {
+        synchronized (penaltyBox) {
+          if (penaltyBoxMillis > 0 && !penaltyBox.containsKey(getRemoteAddress())) {
+            final long until = System.currentTimeMillis() + penaltyBoxMillis;
+            LOG.info(
+                String.format(
+                    "Putting address[%s] in the penalty box until: %s.",
+                    getRemoteAddress(),
+                    new Date(until)
+                )
+            );
+            penaltyBox.put(getRemoteAddress(), until);
+          }
+        }
         throw ioe;
       }
       LOG.info("Retrying connect to server: " + server + ". Already tried "
@@ -1187,6 +1232,7 @@ public class Client {
     this.socketFactory = factory;
     this.connectionTimeout = conf.getInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY,
         CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_DEFAULT);
+    this.penaltyBoxMillis = getPenaltyBoxMillis(conf);
     this.fallbackAllowed = conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,
         CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_DEFAULT);
     this.clientId = ClientId.getClientId();
@@ -1431,7 +1477,7 @@ public class Client {
       return connections.keySet();
     }
   }
-  
+
   /** Get a connection from the pool, or create a new one and add it to the
    * pool.  Connections to a given ConnectionId are reused. */
   private Connection getConnection(ConnectionId remoteId,
@@ -1449,6 +1495,30 @@ public class Client {
       synchronized (connections) {
         connection = connections.get(remoteId);
         if (connection == null) {
+          synchronized (penaltyBox) {
+            // Remove all expired penalty box entries.
+            final Iterator<Entry<InetSocketAddress, Long>> it = penaltyBox.entrySet().iterator();
+            final long now = System.currentTimeMillis();
+            while (it.hasNext()) {
+              final Entry<InetSocketAddress, Long> entry = it.next();
+              if (now > entry.getValue()) {
+                it.remove();
+              }
+            }
+
+            // Check this particular address.
+            final Long penaltyExit = penaltyBox.get(remoteId.getAddress());
+            if (penaltyExit != null) {
+              throw new IOException(
+                  String.format(
+                      "Address[%s] is in the penalty box until: %s.",
+                      remoteId.getAddress(),
+                      new Date(penaltyExit)
+                  )
+              );
+            }
+          }
+
           connection = new Connection(remoteId, serviceClass);
           connections.put(remoteId, connection);
         }
