@@ -59,6 +59,7 @@ import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.api.records.YarnApplicationAttemptState;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
@@ -129,6 +130,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
   private final ReadLock readLock;
   private final WriteLock writeLock;
 
+  private final ResourceRequest amDefaultResourceRequest;
   private final ApplicationAttemptId applicationAttemptId;
   private final ApplicationSubmissionContext submissionContext;
   private Token<AMRMTokenIdentifier> amrmToken = null;
@@ -419,6 +421,20 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
     this.proxiedTrackingUrl = generateProxyUriWithScheme(null);
     this.isLastAttempt = isLastAttempt;
     this.stateMachine = stateMachineFactory.make(this);
+
+    this.amDefaultResourceRequest = ResourceRequest.newInstance(
+        AM_CONTAINER_PRIORITY,
+        conf.get(
+            YarnConfiguration.MMX_AM_RESOURCE_HOST,
+            YarnConfiguration.MMX_AM_RESOURCE_HOST_DEFAULT
+        ),
+        scheduler.getMinimumResourceCapability(),
+        1,
+        conf.getBoolean(
+            YarnConfiguration.MMX_AM_RESOURCE_RELAX,
+            YarnConfiguration.MMX_AM_RESOURCE_RELAX_DEFAULT
+        )
+    );
   }
 
   @Override
@@ -788,10 +804,8 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
         RMAppAttemptEvent event) {
       if (!appAttempt.submissionContext.getUnmanagedAM()) {
         // Request a container for the AM.
-        ResourceRequest request =
-            BuilderUtils.newResourceRequest(
-                AM_CONTAINER_PRIORITY, ResourceRequest.ANY, appAttempt
-                    .getSubmissionContext().getResource(), 1);
+        final ResourceRequest request = BuilderUtils.newResourceRequest(appAttempt.amDefaultResourceRequest);
+        request.setCapability(appAttempt.submissionContext.getResource());
 
         // SchedulerUtils.validateResourceRequests is not necessary because
         // AM resource has been checked when submission
