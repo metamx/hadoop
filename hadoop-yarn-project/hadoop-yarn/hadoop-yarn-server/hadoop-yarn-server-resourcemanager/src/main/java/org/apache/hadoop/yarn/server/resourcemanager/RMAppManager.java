@@ -74,6 +74,7 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent>,
   private final ApplicationMasterService masterService;
   private final YarnScheduler scheduler;
   private final ApplicationACLsManager applicationACLsManager;
+  private final ResourceRequest amDefaultResourceRequest;
   private Configuration conf;
 
   public RMAppManager(RMContext context,
@@ -94,6 +95,19 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent>,
     if (this.maxCompletedAppsInStateStore > this.maxCompletedAppsInMemory) {
       this.maxCompletedAppsInStateStore = this.maxCompletedAppsInMemory;
     }
+    this.amDefaultResourceRequest = ResourceRequest.newInstance(
+        RMAppAttemptImpl.AM_CONTAINER_PRIORITY,
+        conf.get(
+            YarnConfiguration.MMX_AM_RESOURCE_HOST,
+            YarnConfiguration.MMX_AM_RESOURCE_HOST_DEFAULT
+        ),
+        scheduler.getMinimumResourceCapability(),
+        1,
+        conf.getBoolean(
+            YarnConfiguration.MMX_AM_RESOURCE_RELAX,
+            YarnConfiguration.MMX_AM_RESOURCE_RELAX_DEFAULT
+        )
+    );
   }
 
   /**
@@ -378,9 +392,8 @@ public class RMAppManager implements EventHandler<RMAppManagerEvent>,
 
     // Check whether AM resource requirements are within required limits
     if (!submissionContext.getUnmanagedAM()) {
-      ResourceRequest amReq = BuilderUtils.newResourceRequest(
-          RMAppAttemptImpl.AM_CONTAINER_PRIORITY, ResourceRequest.ANY,
-          submissionContext.getResource(), 1);
+      final ResourceRequest amReq = BuilderUtils.newResourceRequest(amDefaultResourceRequest);
+      amReq.setCapability(submissionContext.getResource());
       try {
         SchedulerUtils.validateResourceRequest(amReq,
             scheduler.getMaximumResourceCapability());

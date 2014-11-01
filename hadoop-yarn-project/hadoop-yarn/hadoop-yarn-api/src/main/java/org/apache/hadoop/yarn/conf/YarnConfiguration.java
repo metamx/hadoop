@@ -33,6 +33,7 @@ import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
 
 @Public
 @Evolving
@@ -424,6 +425,14 @@ public class YarnConfiguration extends Configuration {
       CLIENT_FAILOVER_PREFIX + "retries-on-socket-timeouts";
   public static final int
       DEFAULT_CLIENT_FAILOVER_RETRIES_ON_SOCKET_TIMEOUTS = 0;
+
+  public static final String MMX_AM_RESOURCE_HOST =
+      YARN_PREFIX + "metamx.am.resource.host";
+  public static final String MMX_AM_RESOURCE_HOST_DEFAULT = ResourceRequest.ANY;
+
+  public static final String MMX_AM_RESOURCE_RELAX =
+      YARN_PREFIX + "metamx.am.resource.relax";
+  public static final boolean MMX_AM_RESOURCE_RELAX_DEFAULT = false;
 
   ////////////////////////////////
   // RM state store configs
