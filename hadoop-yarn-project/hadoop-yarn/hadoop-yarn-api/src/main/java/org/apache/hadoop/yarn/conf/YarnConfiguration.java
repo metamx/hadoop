@@ -708,6 +708,11 @@ public class YarnConfiguration extends Configuration {
       NM_PREFIX + "resource.percentage-physical-cpu-limit";
   public static final int DEFAULT_NM_RESOURCE_PERCENTAGE_PHYSICAL_CPU_LIMIT =
       100;
+
+  /** Whether to strictly ceil CPU usage by containers. */
+  public static final String NM_CPU_ENFORCE_CEILING_ENABLED =
+      NM_PREFIX + "cpu-enforce-ceiling.enabled";
+  public static final boolean DEFAULT_NM_CPU_ENFORCE_CEILING_ENABLED = false;
   
   /** NM Webapp address.**/
   public static final String NM_WEBAPP_ADDRESS = NM_PREFIX + "webapp.address";

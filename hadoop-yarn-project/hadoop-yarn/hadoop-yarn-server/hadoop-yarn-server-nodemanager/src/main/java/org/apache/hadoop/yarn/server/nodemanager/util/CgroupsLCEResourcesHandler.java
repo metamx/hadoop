@@ -57,6 +57,7 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
   private String cgroupMountPath;
 
   private boolean cpuWeightEnabled = true;
+  private boolean cpuEnforceCeilingEnabled = false;
 
   private final String MTAB_FILE = "/proc/mounts";
   private final String CGROUPS_FSTYPE = "cgroup";
@@ -97,6 +98,9 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
     this.cgroupMountPath = conf.get(YarnConfiguration.
             NM_LINUX_CONTAINER_CGROUPS_MOUNT_PATH, null);
 
+    this.cpuEnforceCeilingEnabled = conf.getBoolean(YarnConfiguration.
+            NM_CPU_ENFORCE_CEILING_ENABLED, YarnConfiguration.DEFAULT_NM_CPU_ENFORCE_CEILING_ENABLED);
+
     this.deleteCgroupTimeout = conf.getLong(
         YarnConfiguration.NM_LINUX_CONTAINER_CGROUPS_DELETE_TIMEOUT,
         YarnConfiguration.DEFAULT_NM_LINUX_CONTAINER_CGROUPS_DELETE_TIMEOUT);
@@ -112,8 +116,10 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
   }
   
   public void init(LinuxContainerExecutor lce) throws IOException {
-    this.init(lce,
-        ResourceCalculatorPlugin.getResourceCalculatorPlugin(null, conf));
+    this.init(
+        lce,
+        ResourceCalculatorPlugin.getResourceCalculatorPlugin(null, conf)
+    );
   }
 
   @VisibleForTesting
@@ -203,7 +209,11 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
     return this.cpuWeightEnabled;
   }
 
-  /*
+  public boolean isCpuEnforceCeilingEnabled() {
+    return cpuEnforceCeilingEnabled;
+  }
+
+/*
    * Next four functions are for an individual cgroup.
    */
 
@@ -289,16 +299,35 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
                            Resource containerResource) throws IOException {
     String containerName = containerId.toString();
 
-    if (isCpuWeightEnabled()) {
+    if (isCpuWeightEnabled() || isCpuEnforceCeilingEnabled()) {
       createCgroup(CONTROLLER_CPU, containerName);
+    }
+
+    if (isCpuWeightEnabled()) {
       int cpuShares = CPU_DEFAULT_WEIGHT * containerResource.getVirtualCores();
       updateCgroup(CONTROLLER_CPU, containerName, "shares",
           String.valueOf(cpuShares));
     }
+
+    if (isCpuEnforceCeilingEnabled()) {
+      int vcores = conf.getInt(YarnConfiguration.NM_VCORES,
+            YarnConfiguration.DEFAULT_NM_VCORES);
+      float part = containerResource.getVirtualCores() / (float) vcores;
+
+      ResourceCalculatorPlugin plugin = ResourceCalculatorPlugin.
+            getResourceCalculatorPlugin(null, conf);
+      float yarnProcessors =
+            NodeManagerHardwareUtils.getContainersCores(plugin, conf);
+      float containerProcessors = part * yarnProcessors;
+
+      int[] limits = getOverallLimits(containerProcessors);
+      updateCgroup(CONTROLLER_CPU, containerName, CPU_PERIOD_US, String.valueOf(limits[0]));
+      updateCgroup(CONTROLLER_CPU, containerName, CPU_QUOTA_US, String.valueOf(limits[1]));
+    }
   }
 
   private void clearLimits(ContainerId containerId) {
-    if (isCpuWeightEnabled()) {
+    if (isCpuWeightEnabled() || isCpuEnforceCeilingEnabled()) {
       deleteCgroup(pathForCgroup(CONTROLLER_CPU, containerId.toString()));
     }
   }

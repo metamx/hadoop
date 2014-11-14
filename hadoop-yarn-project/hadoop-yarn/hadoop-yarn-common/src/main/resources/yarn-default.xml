@@ -826,6 +826,17 @@
   </property>
 
   <property>
+    <description>Whether to strictly ceil CPU usage by containers.
+    Even if there is spare CPU capacity, container will be throttled
+    to not exceed it's share of vcores, which might be useful to
+    predictably reason about container performance. Currently functional
+    only on Linux using cgroups.
+    </description>
+    <name>yarn.nodemanager.cpu-enforce-ceiling.enabled</name>
+    <value>false</value>
+  </property>
+
+  <property>
     <description>NM Webapp address.</description>
     <name>yarn.nodemanager.webapp.address</name>
     <value>${yarn.nodemanager.hostname}:8042</value>
