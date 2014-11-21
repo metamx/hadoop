@@ -100,6 +100,8 @@ public class CgroupsLCEResourcesHandler implements LCEResourcesHandler {
 
     this.cpuEnforceCeilingEnabled = conf.getBoolean(YarnConfiguration.
             NM_CPU_ENFORCE_CEILING_ENABLED, YarnConfiguration.DEFAULT_NM_CPU_ENFORCE_CEILING_ENABLED);
+    this.cpuWeightEnabled = conf.getBoolean(YarnConfiguration.
+            NM_CPU_WEIGHT_ENABLED, YarnConfiguration.DEFAULT_NM_CPU_WEIGHT_ENABLED);
 
     this.deleteCgroupTimeout = conf.getLong(
         YarnConfiguration.NM_LINUX_CONTAINER_CGROUPS_DELETE_TIMEOUT,

@@ -826,6 +826,17 @@
   </property>
 
   <property>
+    <description>Whether to weighted limit CPU usage by containers.
+      Limits CPU usage based on a relative share of CPU time available
+      to container, which is calculated by the number of allocated vcores.
+      If there is a spare CPU capacity it will be distributed across
+      containers in need. Currently functional only on Linux using cgroups.
+    </description>
+    <name>yarn.nodemanager.cpu-weight.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
     <description>Whether to strictly ceil CPU usage by containers.
     Even if there is spare CPU capacity, container will be throttled
     to not exceed it's share of vcores, which might be useful to

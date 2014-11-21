@@ -713,6 +713,11 @@ public class YarnConfiguration extends Configuration {
   public static final String NM_CPU_ENFORCE_CEILING_ENABLED =
       NM_PREFIX + "cpu-enforce-ceiling.enabled";
   public static final boolean DEFAULT_NM_CPU_ENFORCE_CEILING_ENABLED = false;
+
+  /** Whether to weighted limit CPU usage by containers. */
+  public static final String NM_CPU_WEIGHT_ENABLED =
+      NM_PREFIX + "cpu-weight.enabled";
+  public static final boolean DEFAULT_NM_CPU_WEIGHT_ENABLED = true;
   
   /** NM Webapp address.**/
   public static final String NM_WEBAPP_ADDRESS = NM_PREFIX + "webapp.address";
