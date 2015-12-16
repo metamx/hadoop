@@ -1,6 +1,7 @@
 For some reason, I decided not to use maven to manage release tags. I can't remember why :P
 
 Anyway, the way we do hadoop releases is:
+NOTE: Modern way to release hadoop - use deploy.sh script
 
 1) Update all versions to the new one. If we are building 2.7.1-mmx2, this will go something like:
     for x in `find . -name pom.xml` ; do perl -pi -e 's/2.7.1-mmx1/2.7.1-mmx2/g' "$x" ; done
@@ -23,7 +24,8 @@ Anyway, the way we do hadoop releases is:
     cd hadoop-maven-plugins
     mvn install
     cd ../
-    mvn package -Pdist,native,docs,src -DskipTests -Dtar
+    mvn package -Pdist,docs,src -DskipTests -Dtar
+    mvn deploy -DskipTests
 
 6) Update 'hadoop.version' in the pom.xml of the hadoop-mmx repository.
 
