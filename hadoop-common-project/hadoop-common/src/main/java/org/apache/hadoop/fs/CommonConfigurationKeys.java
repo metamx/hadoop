@@ -95,6 +95,10 @@ public class CommonConfigurationKeys extends CommonConfigurationKeysPublic {
   /** Default value for IPC_SERVER_HANDLER_QUEUE_SIZE_KEY */
   public static final int     IPC_SERVER_HANDLER_QUEUE_SIZE_DEFAULT = 100;
 
+  public static final String MMX_IPC_CLIENT_PENALTY_BOX_KEY =
+      "metamx.ipc.client.penalty.box.millis";
+  public static final long    MMX_IPC_CLIENT_PENALTY_BOX_DEFAULT = -1; // Disabled
+
   /**
    * CallQueue related settings. These are not used directly, but rather
    * combined with a namespace and port. For instance:

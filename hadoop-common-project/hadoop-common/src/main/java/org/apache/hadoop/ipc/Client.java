@@ -20,6 +20,7 @@ package org.apache.hadoop.ipc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -121,7 +122,7 @@ public class Client implements AutoCloseable {
     EXTERNAL_CALL_HANDLER.set(externalHandler);
   }
 
-  private ConcurrentMap<ConnectionId, Connection> connections =
+  final private ConcurrentMap<ConnectionId, Connection> connections =
       new ConcurrentHashMap<>();
 
   private Class<? extends Writable> valueClass;   // class of call values
@@ -137,7 +138,12 @@ public class Client implements AutoCloseable {
   private final byte[] clientId;
   private final int maxAsyncCalls;
   private final AtomicInteger asyncCallCounter = new AtomicInteger(0);
-  
+
+  private final long penaltyBoxMillis;
+
+  // Remote address -> time until which this address is in the penalty box
+  private final Map<InetSocketAddress, Long> penaltyBox = Maps.newHashMap();
+
   final static int CONNECTION_CONTEXT_CALL_ID = -3;
 
   /**
@@ -278,6 +284,33 @@ public class Client implements AutoCloseable {
   public static final ExecutorService getClientExecutor() {
     return Client.clientExcecutorFactory.clientExecutor;
   }
+  /**
+   * set the penalty box duration in configuration
+   *
+   * @param conf Configuration
+   * @param millis the penalty box duration
+   */
+  public static void setPenaltyBoxMillis(Configuration conf, long millis)
+  {
+    conf.setLong(CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_KEY, millis);
+  }
+
+  /**
+   * The time for which an address will be penalty-boxed following an unrecoverable timeout.
+   * Penalty-boxed addresses throw exceptions immediately upon trying to connect to them.
+   *
+   * @param conf Configuration
+   *
+   * @return the penalty box duration in milliseconds. -1 if penalty boxing is disabled
+   */
+  public static long getPenaltyBoxMillis(Configuration conf)
+  {
+    return conf.getLong(
+        CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_KEY,
+        CommonConfigurationKeys.MMX_IPC_CLIENT_PENALTY_BOX_DEFAULT
+    );
+  }
+
   /**
    * Increment this client's reference count
    *
@@ -892,6 +925,19 @@ public class Client implements AutoCloseable {
 
       // throw the exception if the maximum number of retries is reached
       if (curRetries >= maxRetries) {
+        synchronized (penaltyBox) {
+          if (penaltyBoxMillis > 0 && !penaltyBox.containsKey(getRemoteAddress())) {
+            final long until = System.currentTimeMillis() + penaltyBoxMillis;
+            LOG.info(
+                String.format(
+                    "Putting address[%s] in the penalty box until: %s.",
+                    getRemoteAddress(),
+                    new Date(until)
+                )
+            );
+            penaltyBox.put(getRemoteAddress(), until);
+          }
+        }
         throw ioe;
       }
       LOG.info("Retrying connect to server: " + server + ". Already tried "
@@ -1088,7 +1134,7 @@ public class Client implements AutoCloseable {
       // 1) RpcRequestHeader  - is serialized Delimited hence contains length
       // 2) RpcRequest
       //
-      // Items '1' and '2' are prepared here. 
+      // Items '1' and '2' are prepared here.
       RpcRequestHeaderProto header = ProtoUtil.makeRpcRequestHeader(
           call.rpcKind, OperationProto.RPC_FINAL_PACKET, call.id, call.retry,
           clientId);
@@ -1265,6 +1311,7 @@ public class Client implements AutoCloseable {
     this.socketFactory = factory;
     this.connectionTimeout = conf.getInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_KEY,
         CommonConfigurationKeys.IPC_CLIENT_CONNECT_TIMEOUT_DEFAULT);
+    this.penaltyBoxMillis = getPenaltyBoxMillis(conf);
     this.fallbackAllowed = conf.getBoolean(CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_KEY,
         CommonConfigurationKeys.IPC_CLIENT_FALLBACK_TO_SIMPLE_AUTH_ALLOWED_DEFAULT);
     this.clientId = ClientId.getClientId();
@@ -1500,7 +1547,7 @@ public class Client implements AutoCloseable {
   Set<ConnectionId> getConnectionIds() {
     return connections.keySet();
   }
-  
+
   /** Get a connection from the pool, or create a new one and add it to the
    * pool.  Connections to a given ConnectionId are reused. */
   private Connection getConnection(ConnectionId remoteId,
@@ -1519,6 +1566,29 @@ public class Client implements AutoCloseable {
       // These lines below can be shorten with computeIfAbsent in Java8
       connection = connections.get(remoteId);
       if (connection == null) {
+        synchronized (penaltyBox) {
+          // Remove all expired penalty box entries.
+          final Iterator<Entry<InetSocketAddress, Long>> it = penaltyBox.entrySet().iterator();
+          final long now = System.currentTimeMillis();
+          while (it.hasNext()) {
+            final Entry<InetSocketAddress, Long> entry = it.next();
+            if (now > entry.getValue()) {
+              it.remove();
+            }
+          }
+
+          // Check this particular address.
+          final Long penaltyExit = penaltyBox.get(remoteId.getAddress());
+          if (penaltyExit != null) {
+            throw new IOException(
+                String.format(
+                    "Address[%s] is in the penalty box until: %s.",
+                    remoteId.getAddress(),
+                    new Date(penaltyExit)
+                )
+            );
+          }
+        }
         connection = new Connection(remoteId, serviceClass);
         Connection existing = connections.putIfAbsent(remoteId, connection);
         if (existing != null) {
@@ -1651,7 +1721,7 @@ public class Client implements AutoCloseable {
     String getSaslQop() {
       return saslQop;
     }
-    
+
     /**
      * Returns a ConnectionId object. 
      * @param addr Remote address for the connection.
