@@ -17,8 +17,8 @@ run mvn versions:set -DnewVersion=$version
 run mvn versions:commit
 run git add -v *
 run git commit -m "Prepare release-$version"
-run git pull
-run git push
+run git pull --rebase
+run git push origin HEAD
 run git tag release-$version
 run git push --tags
 run git checkout release-$version
