@@ -14,6 +14,7 @@ version="$@"
 
 echo "Build and deploy hadoop release-$version"
 run mvn versions:set -DnewVersion=$version
+run mvn versions:commit
 run git add -v *
 run git commit -m "Prepare release-$version"
 run git pull
