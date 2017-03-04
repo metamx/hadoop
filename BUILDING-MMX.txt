@@ -6,7 +6,7 @@ NOTE: Modern way to release hadoop - use deploy.sh script
 1) Update all versions to the new one. If we are building 2.7.2-mmx2, this will go something like:
     for x in `find . -name pom.xml` ; do perl -pi -e 's/2.7.2-mmx1/2.7.2-mmx2/g' "$x" ; done
     or
-    mvn versions:set -DnewVersion=2.7.2-mmx2
+    mvn versions:set -DnewVersion=2.7.2-mmx2 versions:commit
 
 2) Push those commits:
     # add, commit
