@@ -4,7 +4,7 @@ Anyway, the way we do hadoop releases is:
 NOTE: Modern way to release hadoop - use deploy.sh script
 
 1) Update all versions to the new one. If we are building 2.7.3-mmx1, this will go something like:
-    for x in `find . -name pom.xml` ; do perl -pi -e 's/2.7.3/2.7.3-mmx1/g' "$x" ; done
+    for x in `find . -name pom.xml` ; do perl -pi -e 's/2.7.3-mmx1-SNAPSHOT/2.7.3-mmx1/g' "$x" ; done
     or
     mvn versions:set -DnewVersion=2.7.3-mmx1 versions:commit
 
@@ -21,7 +21,7 @@ NOTE: Modern way to release hadoop - use deploy.sh script
 5) Build and deploy to artifactory. This will make jars available for inclusion in client-side projects:
     git checkout release-2.7.3-mmx1
     mvn clean
-    cd hadoop-maven-plugins
+    cd hadoop-build-tools
     mvn install
     cd ../
     mvn package -Pdist,docs,src -DskipTests -Dtar
