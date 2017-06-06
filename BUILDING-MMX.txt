@@ -1,0 +1,32 @@
+For some reason, I decided not to use maven to manage release tags. I can't remember why :P
+
+Anyway, the way we do hadoop releases is:
+NOTE: Modern way to release hadoop - use deploy.sh script
+
+1) Update all versions to the new one. If we are building 2.7.3-mmx1, this will go something like:
+    for x in `find . -name pom.xml` ; do perl -pi -e 's/2.7.3-mmx1-SNAPSHOT/2.7.3-mmx1/g' "$x" ; done
+    or
+    mvn versions:set -DnewVersion=2.7.3-mmx1 versions:commit
+
+2) Push those commits:
+    # add, commit
+    git push
+
+3) Tag the new version:
+    git tag release-2.7.3-mmx1
+
+4) Push to github:
+    git push --tags
+
+5) Build and deploy to artifactory. This will make jars available for inclusion in client-side projects:
+    git checkout release-2.7.3-mmx1
+    mvn clean
+    cd hadoop-build-tools
+    mvn install
+    cd ../
+    mvn package -Pdist,docs,src -DskipTests -Dtar
+    mvn deploy -DskipTests
+
+6) Update 'hadoop.version' in the pom.xml of the hadoop-mmx repository.
+
+7) Build hadoop-mmx with jenkins. This will make a galaxy tarball available for app deployment.
