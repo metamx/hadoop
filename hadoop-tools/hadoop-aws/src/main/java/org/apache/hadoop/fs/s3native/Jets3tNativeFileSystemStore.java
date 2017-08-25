@@ -83,6 +83,7 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
         new AWSCredentials(s3Credentials.getAccessKey(),
             s3Credentials.getSecretAccessKey());
       this.s3Service = new RestS3Service(awsCredentials);
+      this.s3Service.getJetS3tProperties().setProperty("storage-service.request-signature-version", "AWS4-HMAC-SHA256");
     } catch (S3ServiceException e) {
       handleException(e);
     }
