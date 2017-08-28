@@ -78,15 +78,10 @@ class Jets3tNativeFileSystemStore implements NativeFileSystemStore {
   public void initialize(URI uri, Configuration conf) throws IOException {
     S3Credentials s3Credentials = new S3Credentials();
     s3Credentials.initialize(uri, conf);
-    try {
-      AWSCredentials awsCredentials =
-        new AWSCredentials(s3Credentials.getAccessKey(),
-            s3Credentials.getSecretAccessKey());
-      this.s3Service = new RestS3Service(awsCredentials);
-      this.s3Service.getJetS3tProperties().setProperty("storage-service.request-signature-version", "AWS4-HMAC-SHA256");
-    } catch (S3ServiceException e) {
-      handleException(e);
-    }
+    AWSCredentials awsCredentials =
+      new AWSCredentials(s3Credentials.getAccessKey(),
+          s3Credentials.getSecretAccessKey());
+    s3Service = new RestS3Service(awsCredentials);
     multipartEnabled =
         conf.getBoolean("fs.s3n.multipart.uploads.enabled", false);
     multipartBlockSize = Math.min(
