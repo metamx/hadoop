@@ -114,56 +114,45 @@ public class MigrationTool extends Configured implements Tool {
   }
   
   public void initialize(URI uri) throws IOException {
-    
-    
-    
-    try {
-      String accessKey = null;
-      String secretAccessKey = null;
-      String userInfo = uri.getUserInfo();
-      if (userInfo != null) {
-        int index = userInfo.indexOf(':');
-        if (index != -1) {
-          accessKey = userInfo.substring(0, index);
-          secretAccessKey = userInfo.substring(index + 1);
-        } else {
-          accessKey = userInfo;
-        }
+    String accessKey = null;
+    String secretAccessKey = null;
+    String userInfo = uri.getUserInfo();
+    if (userInfo != null) {
+      int index = userInfo.indexOf(':');
+      if (index != -1) {
+        accessKey = userInfo.substring(0, index);
+        secretAccessKey = userInfo.substring(index + 1);
+      } else {
+        accessKey = userInfo;
       }
-      if (accessKey == null) {
-        accessKey = getConf().get("fs.s3.awsAccessKeyId");
-      }
-      if (secretAccessKey == null) {
-        secretAccessKey = getConf().get("fs.s3.awsSecretAccessKey");
-      }
-      if (accessKey == null && secretAccessKey == null) {
-        throw new IllegalArgumentException("AWS " +
-                                           "Access Key ID and Secret Access Key " +
-                                           "must be specified as the username " +
-                                           "or password (respectively) of a s3 URL, " +
-                                           "or by setting the " +
-                                           "fs.s3.awsAccessKeyId or " +                         
-                                           "fs.s3.awsSecretAccessKey properties (respectively).");
-      } else if (accessKey == null) {
-        throw new IllegalArgumentException("AWS " +
-                                           "Access Key ID must be specified " +
-                                           "as the username of a s3 URL, or by setting the " +
-                                           "fs.s3.awsAccessKeyId property.");
-      } else if (secretAccessKey == null) {
-        throw new IllegalArgumentException("AWS " +
-                                           "Secret Access Key must be specified " +
-                                           "as the password of a s3 URL, or by setting the " +
-                                           "fs.s3.awsSecretAccessKey property.");         
-      }
-      AWSCredentials awsCredentials =
-        new AWSCredentials(accessKey, secretAccessKey);
-      this.s3Service = new RestS3Service(awsCredentials);
-    } catch (S3ServiceException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new S3Exception(e);
     }
+    if (accessKey == null) {
+      accessKey = getConf().get("fs.s3.awsAccessKeyId");
+    }
+    if (secretAccessKey == null) {
+      secretAccessKey = getConf().get("fs.s3.awsSecretAccessKey");
+    }
+    if (accessKey == null && secretAccessKey == null) {
+      throw new IllegalArgumentException("AWS " +
+                                         "Access Key ID and Secret Access Key " +
+                                         "must be specified as the username " +
+                                         "or password (respectively) of a s3 URL, " +
+                                         "or by setting the " +
+                                         "fs.s3.awsAccessKeyId or " +
+                                         "fs.s3.awsSecretAccessKey properties (respectively).");
+    } else if (accessKey == null) {
+      throw new IllegalArgumentException("AWS " +
+                                         "Access Key ID must be specified " +
+                                         "as the username of a s3 URL, or by setting the " +
+                                         "fs.s3.awsAccessKeyId property.");
+    } else if (secretAccessKey == null) {
+      throw new IllegalArgumentException("AWS " +
+                                         "Secret Access Key must be specified " +
+                                         "as the password of a s3 URL, or by setting the " +
+                                         "fs.s3.awsSecretAccessKey property.");
+    }
+    AWSCredentials awsCredentials = new AWSCredentials(accessKey, secretAccessKey);
+    s3Service = new RestS3Service(awsCredentials);
     bucket = new S3Bucket(uri.getHost());
   }
   

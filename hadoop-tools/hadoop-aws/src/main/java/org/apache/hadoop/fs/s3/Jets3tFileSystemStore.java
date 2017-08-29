@@ -91,17 +91,10 @@ class Jets3tFileSystemStore implements FileSystemStore {
     
     S3Credentials s3Credentials = new S3Credentials();
     s3Credentials.initialize(uri, conf);
-    try {
-      AWSCredentials awsCredentials =
-        new AWSCredentials(s3Credentials.getAccessKey(),
-            s3Credentials.getSecretAccessKey());
-      this.s3Service = new RestS3Service(awsCredentials);
-    } catch (S3ServiceException e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      }
-      throw new S3Exception(e);
-    }
+    AWSCredentials awsCredentials =
+      new AWSCredentials(s3Credentials.getAccessKey(),
+          s3Credentials.getSecretAccessKey());
+    s3Service = new RestS3Service(awsCredentials);
     bucket = new S3Bucket(uri.getHost());
 
     this.bufferSize = conf.getInt(
