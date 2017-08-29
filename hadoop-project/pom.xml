@@ -66,6 +66,9 @@
     <!-- jersey version -->
     <jersey.version>1.9</jersey.version>
 
+    <!-- javax.activation version-->
+    <javax.activation.version>1.1.1</javax.activation.version>
+
     <!-- jackson versions -->
     <jackson.version>1.9.13</jackson.version>
     <jackson2.version>2.2.3</jackson2.version>
@@ -530,7 +533,18 @@
             <groupId>stax</groupId>
             <artifactId>stax-api</artifactId>
           </exclusion>
+          <!--Excluded as different version is used in jets3t-->
+          <exclusion>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+          </exclusion>
         </exclusions>
+      </dependency>
+      <!--Provide proper version to match version in jets3t and pass validation-->
+      <dependency>
+        <groupId>javax.activation</groupId>
+        <artifactId>activation</artifactId>
+        <version>${javax.activation.version}</version>
       </dependency>
       <dependency>
         <groupId>com.sun.jersey</groupId>
